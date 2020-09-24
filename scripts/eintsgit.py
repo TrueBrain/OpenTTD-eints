@@ -9,14 +9,11 @@ import fcntl
 import getopt
 import datetime
 
-# Connecting to eints
-eints_base_url = "http://localhost:8000"
-
 # Eints authentification
 eints_login_file = "user.cfg"
 
 # Commit credentials
-commit_user = "translators@openttd.org"
+commit_user = "translators <translators@openttd.org>"
 commit_message = "Update: Translations from eints\n"
 
 # Source structure
@@ -155,7 +152,7 @@ def git_push(lang_dir, msg_file, dry_run):
         subprocess.check_call([git_command, "push"])
 
 
-def eints_upload(lang_dir, project_id):
+def eints_upload(base_url, lang_dir, project_id):
     """
     Update base language and translations to Eints.
 
@@ -172,7 +169,7 @@ def eints_upload(lang_dir, project_id):
             "--user-password-file",
             eints_login_file,
             "--base-url",
-            eints_base_url,
+            base_url,
             "--lang-file-ext",
             ".txt",
             "--project",
@@ -187,7 +184,7 @@ def eints_upload(lang_dir, project_id):
     )
 
 
-def eints_download(lang_dir, project_id, credits_file):
+def eints_download(base_url, lang_dir, project_id, credits_file):
     """
     Download translations from Eints.
 
@@ -207,7 +204,7 @@ def eints_download(lang_dir, project_id, credits_file):
             "--user-password-file",
             eints_login_file,
             "--base-url",
-            eints_base_url,
+            base_url,
             "--lang-file-ext",
             ".txt",
             "--project",
@@ -223,7 +220,7 @@ def eints_download(lang_dir, project_id, credits_file):
     )
 
 
-def update_eints_from_git(lang_dir, project_id, force):
+def update_eints_from_git(base_url, lang_dir, project_id, force):
     """
     Perform the complete operation from syncing Eints from the repository.
 
@@ -241,11 +238,11 @@ def update_eints_from_git(lang_dir, project_id, force):
         print_info("Check updates from git")
         if git_pull() or force:
             print_info("Upload translations")
-            eints_upload(lang_dir, project_id)
+            eints_upload(base_url, lang_dir, project_id)
         print_info("Done")
 
 
-def commit_eints_to_git(lang_dir, project_id, dry_run):
+def commit_eints_to_git(base_url, lang_dir, project_id, dry_run):
     """
     Perform the complete operation from commit Eints changes to the repository.
 
@@ -264,10 +261,10 @@ def commit_eints_to_git(lang_dir, project_id, dry_run):
         print_info("Update from git")
         git_pull()
         print_info("Upload/Merge translations")
-        eints_upload(lang_dir, project_id)
+        eints_upload(base_url, lang_dir, project_id)
 
         print_info("Download translations")
-        eints_download(lang_dir, project_id, msg_file)
+        eints_download(base_url, lang_dir, project_id, msg_file)
         if git_status():
             print_info("Commit changes")
             # Assemble commit messge
@@ -289,7 +286,9 @@ def run():
     """
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "h", ["help", "force", "dry-run", "project=", "working-copy="])
+        opts, args = getopt.getopt(
+            sys.argv[1:], "h", ["help", "force", "dry-run", "base-url=", "project=", "working-copy="]
+        )
     except getopt.GetoptError as err:
         print("eintsgit: " + str(err) + ' (try "eintsgit --help")')
         sys.exit(2)
@@ -299,6 +298,7 @@ def run():
     dry_run = False
     project_id = None
     working_copy = None
+    base_url = None
     for opt, val in opts:
         if opt in ("--help", "-h"):
             print(
@@ -325,6 +325,9 @@ with <options>:
 --working-copy
     Path to git working copy
 
+--base-url
+    URL where eints is at
+
 
 
 and <operations>:
@@ -347,6 +350,13 @@ commit-to-git
 
         if opt == "--dry-run":
             dry_run = True
+            continue
+
+        if opt == "--base-url":
+            if base_url:
+                print("Duplicate --base-url option")
+                sys.exit(2)
+            base_url = val
             continue
 
         if opt == "--project":
@@ -398,10 +408,10 @@ commit-to-git
 
     # Execute operations
     if do_update:
-        update_eints_from_git(os.path.join(working_copy, lang_dir), project_id, force)
+        update_eints_from_git(base_url, os.path.join(working_copy, lang_dir), project_id, force)
 
     if do_commit:
-        commit_eints_to_git(os.path.join(working_copy, lang_dir), project_id, dry_run)
+        commit_eints_to_git(base_url, os.path.join(working_copy, lang_dir), project_id, dry_run)
 
     sys.exit(0)
 
