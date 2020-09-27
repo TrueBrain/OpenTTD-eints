@@ -2,6 +2,7 @@
 User authentication and authorization via github teams.
 
 """
+import logging
 import requests
 import requests_oauthlib
 
@@ -9,6 +10,8 @@ from .. import (
     rights,
     userauth,
 )
+
+log = logging.getLogger(__name__)
 
 
 github_organization = None
@@ -57,7 +60,7 @@ def request_teams(name):
         teams = set(t["name"] for t in r["data"]["organization"]["teams"]["nodes"])
         return teams
     except Exception as ex:
-        print(ex)
+        log.exception("Failed to request teams for user %s", name)
         return set()
 
 
@@ -108,7 +111,7 @@ class GithubUserAuthentication(userauth.UserAuthentication):
                 return self.redirect
 
         except Exception as ex:
-            print(ex)
+            log.exception("Failed to get user information")
 
         return None
 
